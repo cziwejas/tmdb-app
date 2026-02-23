@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  # Aplikacja Laravel
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tmdb-app
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+      - ./docker/php.ini:/usr/local/etc/php/conf.d/custom.ini
+    networks:
+      - tmdb-network
+    depends_on:
+      - db
+      - redis
+    environment:
+      - DB_HOST=db
+      - DB_DATABASE=${DB_DATABASE:-tmdb_app}
+      - DB_USERNAME=${DB_USERNAME:-tmdb_user}
+      - DB_PASSWORD=${DB_PASSWORD:-secret}
+      - REDIS_HOST=redis
+      - QUEUE_CONNECTION=redis
+
+  # Nginx Web Server
+  nginx:
+    image: nginx:alpine
+    container_name: tmdb-nginx
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - ./:/var/www
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - tmdb-network
+    depends_on:
+      - app
+
+  # MySQL Database
+  db:
+    image: mysql:8.0
+    container_name: tmdb-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_secret}
+      MYSQL_DATABASE: ${DB_DATABASE:-tmdb_app}
+      MYSQL_USER: ${DB_USERNAME:-tmdb_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      - db-data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - tmdb-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # Redis Cache & Queue
+  redis:
+    image: redis:alpine
+    container_name: tmdb-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - tmdb-network
+
+  # Queue Worker
+  queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tmdb-queue
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+    networks:
+      - tmdb-network
+    depends_on:
+      - db
+      - redis
+    environment:
+      - DB_HOST=db
+      - DB_DATABASE=${DB_DATABASE:-tmdb_app}
+      - DB_USERNAME=${DB_USERNAME:-tmdb_user}
+      - DB_PASSWORD=${DB_PASSWORD:-secret}
+      - REDIS_HOST=redis
+      - QUEUE_CONNECTION=redis
+    command: php artisan queue:work --tries=3 --timeout=300
+
+networks:
+  tmdb-network:
+    driver: bridge
+
+volumes:
+  db-data:
+    driver: local

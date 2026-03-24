@@ -108,7 +108,7 @@ docker-compose down -v
 
 1. **Klonuj repozytorium:**
    ```bash
-   git clone <adres_repozytorium>
+   git clone https://github.com/cziwejas/tmdb-app
    cd tmdb-app
    ```
 

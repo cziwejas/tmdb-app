@@ -53,7 +53,7 @@ Aplikacja Laravel do pobierania i udostępniania danych o filmach, serialach i g
 
 1. **Klonuj repozytorium:**
    ```bash
-   git clone <adres_repozytorium>
+   git clone https://github.com/cziwejas/tmdb-app
    cd tmdb-app
    ```
 
